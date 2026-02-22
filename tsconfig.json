@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "lib": ["dom", "esnext"],
+    "module": "ESNext",
+    "target": "ES2020",
+    "jsx": "react-jsx",
+    "strict": true,
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "@web/*": ["web/*"]
+    }
+  },
+  "include": ["web", "src"]
+}

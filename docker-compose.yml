@@ -1,0 +1,15 @@
+services:
+  app:
+    build: .
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+    # Allow Chromium's sandbox to work inside Docker
+    # (use --cap-add instead of --privileged for better security)
+    cap_add:
+      - SYS_ADMIN
+    restart: unless-stopped
+    volumes:
+      # Persist nothing — renders are temp files cleaned up after download
+      - /tmp:/tmp

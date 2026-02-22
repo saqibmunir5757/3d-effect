@@ -1,0 +1,82 @@
+# ── Stage 1: build ────────────────────────────────────────────────────────────
+FROM node:20-bookworm-slim AS builder
+
+WORKDIR /app
+
+# Install Python (needed by some native build tools)
+RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
+
+COPY package*.json ./
+RUN npm ci
+
+COPY . .
+RUN npm run build:prod
+
+# ── Stage 2: runtime ──────────────────────────────────────────────────────────
+FROM node:20-bookworm-slim AS runner
+
+WORKDIR /app
+
+# Chromium / Puppeteer dependencies for Remotion headless rendering
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    fonts-liberation \
+    libasound2 \
+    libatk-bridge2.0-0 \
+    libatk1.0-0 \
+    libc6 \
+    libcairo2 \
+    libcups2 \
+    libdbus-1-3 \
+    libexpat1 \
+    libfontconfig1 \
+    libgbm1 \
+    libgcc1 \
+    libglib2.0-0 \
+    libgtk-3-0 \
+    libnspr4 \
+    libnss3 \
+    libpango-1.0-0 \
+    libpangocairo-1.0-0 \
+    libstdc++6 \
+    libx11-6 \
+    libx11-xcb1 \
+    libxcb1 \
+    libxcomposite1 \
+    libxcursor1 \
+    libxdamage1 \
+    libxext6 \
+    libxfixes3 \
+    libxi6 \
+    libxkbcommon0 \
+    libxrandr2 \
+    libxrender1 \
+    libxss1 \
+    libxtst6 \
+    lsb-release \
+    wget \
+    xdg-utils \
+    # EGL / GLES for gl:"egl" (GPU-less headless rendering)
+    libegl1 \
+    libgl1 \
+    libgles2 \
+    # Fonts for rendering
+    fonts-noto-color-emoji \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy production dependencies only
+COPY package*.json ./
+RUN npm ci --omit=dev
+
+# Copy compiled server + built frontend from builder
+COPY --from=builder /app/dist ./dist
+# Copy src (Remotion entry point) — renderer bundles at runtime
+COPY --from=builder /app/src ./src
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/remotion.config.ts ./
+COPY --from=builder /app/tsconfig.json ./
+COPY --from=builder /app/tsconfig.remotion.json ./
+
+EXPOSE 3001
+
+CMD ["node", "dist/server/server/index.js"]
