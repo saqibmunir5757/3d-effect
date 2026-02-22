@@ -25,7 +25,7 @@ app.use("/tmp-assets", express.static(os.tmpdir()));
 const DIST_WEB = path.resolve(process.cwd(), "dist/web");
 if (fs.existsSync(DIST_WEB)) {
   app.use(express.static(DIST_WEB));
-  app.get("*", (_req, res) => res.sendFile(path.join(DIST_WEB, "index.html")));
+  app.get("/{*path}", (_req, res) => res.sendFile(path.join(DIST_WEB, "index.html")));
 }
 
 const PORT = 3001;
