@@ -12,7 +12,7 @@ export const PlayerWrapper: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(800);
 
-  const { imageUrl, accentColor, entranceDurationFrames, imageZoom } = useGeneratorStore();
+  const { imageUrl, accentColor, entranceDurationFrames, imageZoom, cardScale, glowIntensity } = useGeneratorStore();
 
   // Measure container width and update on resize
   useEffect(() => {
@@ -37,6 +37,8 @@ export const PlayerWrapper: React.FC = () => {
     accentColor,
     entranceDurationFrames,
     imageZoom,
+    cardScale,
+    glowIntensity,
     title: "",
     subtitle: "",
   };

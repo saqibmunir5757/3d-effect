@@ -2,6 +2,7 @@ import React, { useRef } from "react";
 import { useGeneratorStore } from "../../store/generatorStore";
 
 const PRESETS = [
+  { label: "White",  value: "#ffffff" },
   { label: "Indigo", value: "#6366f1" },
   { label: "Violet", value: "#8b5cf6" },
   { label: "Rose",   value: "#f43f5e" },

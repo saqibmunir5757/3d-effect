@@ -19,9 +19,11 @@ export const DashboardFlyInSchema = z.object({
   imageUrl: z.string().url().or(z.string().min(1)),
   title: z.string().default("Dashboard Overview"),
   subtitle: z.string().default("Q1 2025 • Live Metrics"),
-  accentColor: z.string().default("#6366f1"),
+  accentColor: z.string().default("#ffffff"),
   entranceDurationFrames: z.number().int().positive().default(60),
   imageZoom: z.number().min(1).max(3).default(1.0),
+  cardScale: z.number().min(0.3).max(1.0).default(0.7),
+  glowIntensity: z.number().min(0).max(2).default(1.0),
 });
 
 export type DashboardFlyInProps = z.infer<typeof DashboardFlyInSchema>;
@@ -117,6 +119,8 @@ const DashboardFlyInInner: React.FC<DashboardFlyInProps> = ({
   accentColor,
   entranceDurationFrames,
   imageZoom = 1.0,
+  cardScale = 0.7,
+  glowIntensity = 1.0,
 }) => {
   const frame = useCurrentFrame();
   const { fps, width } = useVideoConfig();
@@ -175,14 +179,15 @@ const DashboardFlyInInner: React.FC<DashboardFlyInProps> = ({
   const shadowY      = interpolate(entranceProgress, [0, 1], [80,  22]);
   const shadowSpread = interpolate(entranceProgress, [0, 1], [-20,  0]);
   const shadowAlpha  = interpolate(entranceProgress, [0, 1], [0.15, 0.5]);
-  const glowAlpha    = interpolate(entranceProgress, [0, 1], [0, 0.75]);
-  const glowSpread   = interpolate(entranceProgress, [0, 1], [0, 18]);
-  const glowBlur     = interpolate(entranceProgress, [0, 1], [0, 40]);
+  const glowAlpha    = interpolate(entranceProgress, [0, 1], [0, 0.75]) * glowIntensity;
+  const glowSpread   = interpolate(entranceProgress, [0, 1], [0, 18])  * glowIntensity;
+  const glowBlur     = interpolate(entranceProgress, [0, 1], [0, 40])  * glowIntensity;
+  const glowFixed    = Math.min(glowIntensity, 1);
 
   const boxShadow = [
     `0 ${shadowY}px ${shadowBlur}px ${shadowSpread}px rgba(0,0,0,${shadowAlpha})`,
-    `0 0 ${glowBlur}px ${glowSpread}px ${accentColor}${Math.round(glowAlpha * 255).toString(16).padStart(2, "0")}`,
-    `0 0 12px 2px ${accentColor}55`,
+    `0 0 ${glowBlur}px ${glowSpread}px ${accentColor}${Math.round(Math.min(glowAlpha, 1) * 255).toString(16).padStart(2, "0")}`,
+    `0 0 12px 2px ${accentColor}${Math.round(glowFixed * 0.33 * 255).toString(16).padStart(2, "0")}`,
   ].join(", ");
 
   // ── Idle float ────────────────────────────────────────────────────────────
@@ -201,7 +206,7 @@ const DashboardFlyInInner: React.FC<DashboardFlyInProps> = ({
   const resolvedSrc = /^(https?|data|file):/.test(imageUrl) ? imageUrl : staticFile(imageUrl);
 
   // ── Card dimensions ───────────────────────────────────────────────────────
-  const CARD_W = width * 0.70;
+  const CARD_W = width * cardScale;
   const CARD_H = CARD_W * (9 / 16);
 
   const transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(${scale}) translateY(${floatY}px)`;
@@ -226,7 +231,7 @@ const DashboardFlyInInner: React.FC<DashboardFlyInProps> = ({
           borderRadius: 60,
           background: `radial-gradient(ellipse at 40% 60%, ${accentColor}22 0%, transparent 68%)`,
           transform,
-          opacity: entranceProgress,
+          opacity: entranceProgress * glowIntensity,
           transformStyle: "preserve-3d",
         }}
       />

@@ -12,6 +12,8 @@ interface GeneratorState {
   accentColor: string;
   entranceDurationFrames: number;
   imageZoom: number; // 1.0 = fit, >1 = zoom in
+  cardScale: number; // 0.3–1.0, fraction of frame width
+  glowIntensity: number; // 0.0 = no glow, 1.0 = normal, 2.0 = max
 
   // Export
   exportStatus: ExportStatus;
@@ -24,7 +26,7 @@ interface GeneratorState {
   setImageFromFile: (file: File) => void;
   setImageFromUrl: (url: string) => void;
   setImageMode: (mode: "file" | "url") => void;
-  updateProp: <K extends keyof Pick<GeneratorState, "accentColor" | "entranceDurationFrames" | "imageZoom">>(
+  updateProp: <K extends keyof Pick<GeneratorState, "accentColor" | "entranceDurationFrames" | "imageZoom" | "cardScale" | "glowIntensity">>(
     key: K,
     value: GeneratorState[K]
   ) => void;
@@ -36,9 +38,11 @@ export const useGeneratorStore = create<GeneratorState>((set, get) => ({
   imageMode: "file",
   imageUrl: "",
   imageFile: null,
-  accentColor: "#6366f1",
+  accentColor: "#ffffff",
   entranceDurationFrames: 60,
   imageZoom: 1.0,
+  cardScale: 0.7,
+  glowIntensity: 1.0,
   exportStatus: "idle",
   exportError: null,
   renderFrame: 0,
@@ -67,7 +71,7 @@ export const useGeneratorStore = create<GeneratorState>((set, get) => ({
   },
 
   triggerRender: async () => {
-    const { imageUrl, imageFile, imageMode, accentColor, entranceDurationFrames, imageZoom } = get();
+    const { imageUrl, imageFile, imageMode, accentColor, entranceDurationFrames, imageZoom, cardScale, glowIntensity } = get();
     set({ exportStatus: "rendering", exportError: null, renderFrame: 0, renderTotalFrames: 0, renderPercent: 0 });
 
     try {
@@ -78,12 +82,14 @@ export const useGeneratorStore = create<GeneratorState>((set, get) => ({
         form.append("accentColor", accentColor);
         form.append("entranceDurationFrames", String(entranceDurationFrames));
         form.append("imageZoom", String(imageZoom));
+        form.append("cardScale", String(cardScale));
+        form.append("glowIntensity", String(glowIntensity));
         startRes = await fetch("/api/render", { method: "POST", body: form });
       } else {
         startRes = await fetch("/api/render", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ imageUrl, accentColor, entranceDurationFrames, imageZoom }),
+          body: JSON.stringify({ imageUrl, accentColor, entranceDurationFrames, imageZoom, cardScale, glowIntensity }),
         });
       }
 

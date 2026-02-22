@@ -112,13 +112,15 @@ async function doRender(
   accentColor: string,
   entranceDurationFrames: number,
   imageZoom: number,
+  cardScale: number,
+  glowIntensity: number,
   uploadedFilePath?: string
 ) {
   const outPath = path.join(os.tmpdir(), `render-${jobId}.mp4`);
 
   try {
     const bundlePath = await getBundle();
-    const inputProps = { imageUrl, accentColor, entranceDurationFrames, imageZoom, title: "", subtitle: "" };
+    const inputProps = { imageUrl, accentColor, entranceDurationFrames, imageZoom, cardScale, glowIntensity, title: "", subtitle: "" };
 
     const composition = await selectComposition({
       serveUrl: bundlePath,
@@ -193,6 +195,8 @@ app.post("/api/render", upload.any(), async (req, res) => {
   const accentColor = (req.body.accentColor as string) ?? "#6366f1";
   const entranceDurationFrames = Number(req.body.entranceDurationFrames ?? 60);
   const imageZoom = Number(req.body.imageZoom ?? 1.0);
+  const cardScale = Number(req.body.cardScale ?? 0.7);
+  const glowIntensity = Number(req.body.glowIntensity ?? 1.0);
   const jobId = `job-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
   const files = req.files as Express.Multer.File[] | undefined;
@@ -203,7 +207,7 @@ app.post("/api/render", upload.any(), async (req, res) => {
   if (uploadedFile) {
     const filename = path.basename(uploadedFile.path);
     imageUrl = `http://localhost:${PORT}/tmp-assets/${filename}`;
-    doRender(jobId, imageUrl, accentColor, entranceDurationFrames, imageZoom, uploadedFile.path);
+    doRender(jobId, imageUrl, accentColor, entranceDurationFrames, imageZoom, cardScale, glowIntensity, uploadedFile.path);
   } else {
     const body = req.body as { imageUrl?: string };
     if (!body.imageUrl) {
@@ -211,7 +215,7 @@ app.post("/api/render", upload.any(), async (req, res) => {
       return;
     }
     imageUrl = body.imageUrl;
-    doRender(jobId, imageUrl, accentColor, entranceDurationFrames, imageZoom);
+    doRender(jobId, imageUrl, accentColor, entranceDurationFrames, imageZoom, cardScale, glowIntensity);
   }
 
   // Return the jobId immediately so client can subscribe to progress
