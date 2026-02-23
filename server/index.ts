@@ -9,7 +9,7 @@ import { renderMedia, selectComposition } from "@remotion/renderer";
 const app = express();
 app.use(express.json());
 
-// Allow browser to connect directly to this server for SSE (bypasses Vite proxy buffering)
+// Allow browser to connect directly to this server (bypasses Vite proxy buffering)
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -55,55 +55,38 @@ async function getBundle(): Promise<string> {
 
 getBundle().catch(() => {});
 
-// ── SSE job registry ──────────────────────────────────────────────────────
-// Each render gets a unique jobId. SSE clients subscribe and receive progress.
+// ── Job status registry ────────────────────────────────────────────────────
 type ProgressEvent =
   | { type: "progress"; frame: number; totalFrames: number; percent: number }
   | { type: "done"; downloadUrl: string }
   | { type: "error"; message: string };
 
-// Map of jobId → list of SSE response objects listening for that job
-const sseClients = new Map<string, express.Response[]>();
+type JobStatus =
+  | { state: "pending" }
+  | { state: "progress"; frame: number; totalFrames: number; percent: number }
+  | { state: "done"; downloadUrl: string }
+  | { state: "error"; message: string };
+
+const jobStatuses = new Map<string, JobStatus>();
 
 function pushEvent(jobId: string, event: ProgressEvent) {
-  const clients = sseClients.get(jobId) ?? [];
-  const payload = `data: ${JSON.stringify(event)}\n\n`;
-  for (const client of clients) {
-    client.write(payload);
-    if (event.type === "done" || event.type === "error") {
-      client.end();
-    }
-  }
-  if (event.type === "done" || event.type === "error") {
-    sseClients.delete(jobId);
+  if (event.type === "progress") {
+    jobStatuses.set(jobId, { state: "progress", frame: event.frame, totalFrames: event.totalFrames, percent: event.percent });
+  } else if (event.type === "done") {
+    jobStatuses.set(jobId, { state: "done", downloadUrl: event.downloadUrl });
+  } else if (event.type === "error") {
+    jobStatuses.set(jobId, { state: "error", message: event.message });
   }
 }
 
-// ── SSE subscribe endpoint ────────────────────────────────────────────────
-app.get("/api/render/progress/:jobId", (req, res) => {
+// ── Polling status endpoint ────────────────────────────────────────────────
+app.get("/api/render/status/:jobId", (req, res) => {
   const { jobId } = req.params;
-
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("X-Accel-Buffering", "no");
-  res.flushHeaders();
-
-  // Register client
-  const existing = sseClients.get(jobId) ?? [];
-  existing.push(res);
-  sseClients.set(jobId, existing);
-
-  // Remove on disconnect
-  req.on("close", () => {
-    const list = sseClients.get(jobId);
-    if (list) {
-      const updated = list.filter((c) => c !== res);
-      if (updated.length === 0) sseClients.delete(jobId);
-      else sseClients.set(jobId, updated);
-    }
-  });
+  const status = jobStatuses.get(jobId) ?? { state: "pending" };
+  if (status.state === "done" || status.state === "error") {
+    jobStatuses.delete(jobId);
+  }
+  res.json(status);
 });
 
 // ── Async render function ─────────────────────────────────────────────────
@@ -159,10 +142,7 @@ async function doRender(
 
     console.log(`\n✅ [${jobId}] Done → ${outPath}`);
 
-    // Push download URL — client fetches it to get the file
     pushEvent(jobId, { type: "done", downloadUrl: `/api/render/download/${jobId}` });
-
-    // Store the output path for the download endpoint (cleaned up after download)
     renderOutputs.set(jobId, { outPath, uploadedFilePath });
   } catch (err) {
     console.error(`Render error [${jobId}]:`, err);
@@ -172,7 +152,7 @@ async function doRender(
   }
 }
 
-// ── Download endpoint (called after SSE "done") ───────────────────────────
+// ── Download endpoint ─────────────────────────────────────────────────────
 const renderOutputs = new Map<string, { outPath: string; uploadedFilePath?: string }>();
 
 app.get("/api/render/download/:jobId", (req, res) => {
@@ -196,7 +176,6 @@ app.get("/api/render/download/:jobId", (req, res) => {
 });
 
 // ── Render start endpoint ─────────────────────────────────────────────────
-// Returns immediately with a jobId. Client subscribes to SSE for progress.
 app.post("/api/render", upload.any(), async (req, res) => {
   const accentColor = (req.body.accentColor as string) ?? "#6366f1";
   const entranceDurationFrames = Number(req.body.entranceDurationFrames ?? 60);
@@ -204,6 +183,8 @@ app.post("/api/render", upload.any(), async (req, res) => {
   const cardScale = Number(req.body.cardScale ?? 0.7);
   const glowIntensity = Number(req.body.glowIntensity ?? 1.0);
   const jobId = `job-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+  jobStatuses.set(jobId, { state: "pending" });
 
   const files = req.files as Express.Multer.File[] | undefined;
   const uploadedFile = files?.find((f) => f.fieldname === "image");
@@ -224,7 +205,6 @@ app.post("/api/render", upload.any(), async (req, res) => {
     doRender(jobId, imageUrl, accentColor, entranceDurationFrames, imageZoom, cardScale, glowIntensity);
   }
 
-  // Return the jobId immediately so client can subscribe to progress
   res.json({ jobId });
 });
 

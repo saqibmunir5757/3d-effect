@@ -100,48 +100,44 @@ export const useGeneratorStore = create<GeneratorState>((set, get) => ({
 
       const { jobId } = (await startRes.json()) as { jobId: string };
 
-      // SSE connects to same origin in production, direct to port 3001 in dev
-      // Uses window.location.hostname so it works when accessed from other devices on the network
-      const sseBase = window.location.port === "5173" || window.location.port === "5174" || window.location.port === "5175"
-        ? `http://${window.location.hostname}:3001`
-        : window.location.origin;
-
       await new Promise<void>((resolve, reject) => {
-        const evtSource = new EventSource(`${sseBase}/api/render/progress/${jobId}`);
+        const interval = setInterval(async () => {
+          try {
+            const res = await fetch(`/api/render/status/${jobId}`);
+            if (!res.ok) { clearInterval(interval); reject(new Error("Status check failed")); return; }
 
-        evtSource.onmessage = async (e) => {
-          const event = JSON.parse(e.data) as
-            | { type: "progress"; frame: number; totalFrames: number; percent: number }
-            | { type: "done"; downloadUrl: string }
-            | { type: "error"; message: string };
+            const status = await res.json() as
+              | { state: "pending" }
+              | { state: "progress"; frame: number; totalFrames: number; percent: number }
+              | { state: "done"; downloadUrl: string }
+              | { state: "error"; message: string };
 
-          if (event.type === "progress") {
-            set({ renderFrame: event.frame, renderTotalFrames: event.totalFrames, renderPercent: event.percent });
-          } else if (event.type === "done") {
-            evtSource.close();
-            set({ renderPercent: 100 });
+            if (status.state === "progress") {
+              set({ renderFrame: status.frame, renderTotalFrames: status.totalFrames, renderPercent: status.percent });
+            } else if (status.state === "done") {
+              clearInterval(interval);
+              set({ renderPercent: 100 });
 
-            const downloadRes = await fetch(event.downloadUrl);
-            if (!downloadRes.ok) { reject(new Error("Download failed")); return; }
+              const downloadRes = await fetch(status.downloadUrl);
+              if (!downloadRes.ok) { reject(new Error("Download failed")); return; }
 
-            const blob = await downloadRes.blob();
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = "animation.mp4";
-            a.click();
-            URL.revokeObjectURL(url);
-            resolve();
-          } else if (event.type === "error") {
-            evtSource.close();
-            reject(new Error(event.message));
+              const blob = await downloadRes.blob();
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = "animation.mp4";
+              a.click();
+              URL.revokeObjectURL(url);
+              resolve();
+            } else if (status.state === "error") {
+              clearInterval(interval);
+              reject(new Error(status.message));
+            }
+          } catch (err) {
+            clearInterval(interval);
+            reject(new Error("Connection to render server lost"));
           }
-        };
-
-        evtSource.onerror = () => {
-          evtSource.close();
-          reject(new Error("Connection to render server lost"));
-        };
+        }, 2000);
       });
 
       set({ exportStatus: "done" });
