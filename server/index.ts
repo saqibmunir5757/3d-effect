@@ -138,7 +138,12 @@ async function doRender(
       outputLocation: outPath,
       inputProps,
       concurrency: Math.max(1, os.cpus().length - 1),
-      chromiumOptions: { gl: process.platform === "linux" ? "egl" : "angle" },
+      chromiumOptions: {
+        gl: process.platform === "linux" ? "swiftshader" : "angle",
+        disableWebSecurity: true,
+        ignoreCertificateErrors: true,
+      },
+      browserExecutable: process.env.REMOTION_CHROME_EXECUTABLE || undefined,
       onProgress: ({ renderedFrames, progress }) => {
         const frame = renderedFrames ?? Math.round(progress * totalFrames);
         pushEvent(jobId, {
