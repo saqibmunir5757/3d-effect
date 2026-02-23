@@ -195,6 +195,20 @@ app.get("/api/render/download-file/:filename", (req, res) => {
   fs.createReadStream(filePath).pipe(res);
 });
 
+// ── Delete a rendered video ────────────────────────────────────────────────
+app.delete("/api/render/delete-file/:filename", (req, res) => {
+  const filename = path.basename(req.params.filename);
+  const filePath = path.join(os.tmpdir(), filename);
+  if (!fs.existsSync(filePath)) {
+    res.status(404).json({ error: "File not found" });
+    return;
+  }
+  fs.unlink(filePath, (err) => {
+    if (err) { res.status(500).json({ error: "Failed to delete file" }); return; }
+    res.json({ success: true });
+  });
+});
+
 // ── Render start endpoint ─────────────────────────────────────────────────
 app.post("/api/render", upload.any(), async (req, res) => {
   const accentColor = (req.body.accentColor as string) ?? "#6366f1";

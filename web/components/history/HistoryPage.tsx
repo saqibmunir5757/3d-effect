@@ -21,6 +21,21 @@ export const HistoryPage: React.FC = () => {
   const [renders, setRenders] = useState<RenderEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
+
+  const handleDelete = async (filename: string) => {
+    if (!confirm(`Delete ${filename}?`)) return;
+    setDeleting(filename);
+    try {
+      const res = await fetch(`/api/render/delete-file/${filename}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Delete failed");
+      setRenders(prev => prev.filter(r => r.filename !== filename));
+    } catch (e) {
+      alert(String(e));
+    } finally {
+      setDeleting(null);
+    }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -107,24 +122,43 @@ export const HistoryPage: React.FC = () => {
                 {formatDate(r.createdAt)} · {formatSize(r.size)}
               </div>
             </div>
-            <a
-              href={r.downloadUrl}
-              download={r.filename}
-              style={{
-                background: "var(--accent)",
-                color: "white",
-                border: "none",
-                borderRadius: 8,
-                padding: "8px 18px",
-                fontSize: 13,
-                fontWeight: 500,
-                cursor: "pointer",
-                textDecoration: "none",
-                whiteSpace: "nowrap",
-              }}
-            >
-              Download
-            </a>
+            <div style={{ display: "flex", gap: 8 }}>
+              <a
+                href={r.downloadUrl}
+                download={r.filename}
+                style={{
+                  background: "var(--accent)",
+                  color: "white",
+                  border: "none",
+                  borderRadius: 8,
+                  padding: "8px 18px",
+                  fontSize: 13,
+                  fontWeight: 500,
+                  cursor: "pointer",
+                  textDecoration: "none",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Download
+              </a>
+              <button
+                onClick={() => handleDelete(r.filename)}
+                disabled={deleting === r.filename}
+                style={{
+                  background: deleting === r.filename ? "#555" : "#3b1a1a",
+                  color: "#ef4444",
+                  border: "1px solid #5a2020",
+                  borderRadius: 8,
+                  padding: "8px 14px",
+                  fontSize: 13,
+                  fontWeight: 500,
+                  cursor: deleting === r.filename ? "not-allowed" : "pointer",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {deleting === r.filename ? "…" : "Delete"}
+              </button>
+            </div>
           </div>
         ))}
       </div>
