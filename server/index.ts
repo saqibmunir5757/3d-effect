@@ -21,13 +21,6 @@ app.use((req, res, next) => {
 // Serve uploaded files over HTTP so Remotion's headless browser can load them.
 app.use("/tmp-assets", express.static(os.tmpdir()));
 
-// Serve built Vite frontend (production only — in dev, Vite runs separately)
-const DIST_WEB = path.resolve(process.cwd(), "dist/web");
-if (fs.existsSync(DIST_WEB)) {
-  app.use(express.static(DIST_WEB));
-  app.get("/{*path}", (_req, res) => res.sendFile(path.join(DIST_WEB, "index.html")));
-}
-
 const PORT = 3001;
 const ENTRY_POINT = path.resolve(process.cwd(), "src/index.ts");
 
@@ -234,6 +227,13 @@ app.post("/api/render", upload.any(), async (req, res) => {
 
   res.json({ jobId });
 });
+
+// Serve built Vite frontend (production only — must be AFTER all API routes)
+const DIST_WEB = path.resolve(process.cwd(), "dist/web");
+if (fs.existsSync(DIST_WEB)) {
+  app.use(express.static(DIST_WEB));
+  app.get("/{*path}", (_req, res) => res.sendFile(path.join(DIST_WEB, "index.html")));
+}
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Render server running at http://0.0.0.0:${PORT}`);
