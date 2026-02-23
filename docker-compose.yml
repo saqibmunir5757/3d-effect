@@ -11,6 +11,6 @@ services:
       - SYS_ADMIN
     restart: unless-stopped
     volumes:
-      - /tmp:/tmp
+      - /hdd/3d-out:/tmp
     devices:
       - /dev/dri:/dev/dri
