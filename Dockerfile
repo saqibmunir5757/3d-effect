@@ -23,7 +23,7 @@ RUN apt-get update && apt-get install -y \
     fonts-liberation \
     fonts-noto-color-emoji \
     chromium \
-    libasound2t64 \
+    libasound2 \
     libatk-bridge2.0-0 \
     libatk1.0-0 \
     libcairo2 \
@@ -52,7 +52,6 @@ RUN apt-get update && apt-get install -y \
     libxkbcommon0 \
     libxrandr2 \
     libxrender1 \
-    libxss1 \
     libxtst6 \
     # SwiftShader / software GL for headless rendering
     libegl1 \
