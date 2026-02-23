@@ -11,5 +11,6 @@ services:
       - SYS_ADMIN
     restart: unless-stopped
     volumes:
-      # Persist nothing — renders are temp files cleaned up after download
       - /tmp:/tmp
+    devices:
+      - /dev/dri:/dev/dri

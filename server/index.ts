@@ -139,7 +139,7 @@ async function doRender(
       inputProps,
       concurrency: Math.max(1, os.cpus().length - 1),
       chromiumOptions: {
-        gl: process.platform === "linux" ? "swiftshader" : "angle",
+        gl: "angle",
         disableWebSecurity: true,
         ignoreCertificateErrors: true,
       },
