@@ -163,7 +163,7 @@ app.get("/api/render/download/:jobId", (req, res) => {
   const stream = fs.createReadStream(output.outPath);
   stream.pipe(res);
   stream.on("close", () => {
-    fs.unlink(output.outPath, () => {});
+    // Keep the render file so it appears in History — only delete the uploaded source image
     if (output.uploadedFilePath) fs.unlink(output.uploadedFilePath, () => {});
   });
 });
