@@ -227,6 +227,6 @@ app.post("/api/render", upload.any(), async (req, res) => {
   res.json({ jobId });
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 Render server running at http://localhost:${PORT}`);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`🚀 Render server running at http://0.0.0.0:${PORT}`);
 });

@@ -100,9 +100,10 @@ export const useGeneratorStore = create<GeneratorState>((set, get) => ({
 
       const { jobId } = (await startRes.json()) as { jobId: string };
 
-      // SSE connects to same origin in production, direct to 3001 in dev
+      // SSE connects to same origin in production, direct to port 3001 in dev
+      // Uses window.location.hostname so it works when accessed from other devices on the network
       const sseBase = window.location.port === "5173" || window.location.port === "5174" || window.location.port === "5175"
-        ? "http://localhost:3001"
+        ? `http://${window.location.hostname}:3001`
         : window.location.origin;
 
       await new Promise<void>((resolve, reject) => {
