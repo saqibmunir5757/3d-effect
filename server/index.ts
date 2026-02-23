@@ -175,6 +175,33 @@ app.get("/api/render/download/:jobId", (req, res) => {
   });
 });
 
+// ── List all rendered videos ───────────────────────────────────────────────
+app.get("/api/renders", (_req, res) => {
+  const tmpDir = os.tmpdir();
+  const files = fs.readdirSync(tmpDir)
+    .filter(f => f.startsWith("render-") && f.endsWith(".mp4"))
+    .map(f => {
+      const stat = fs.statSync(path.join(tmpDir, f));
+      const jobId = f.replace("render-", "").replace(".mp4", "");
+      return { jobId, filename: f, downloadUrl: `/api/render/download-file/${f}`, createdAt: stat.mtimeMs, size: stat.size };
+    })
+    .sort((a, b) => b.createdAt - a.createdAt);
+  res.json(files);
+});
+
+// ── Download by filename (persistent, does not delete file) ───────────────
+app.get("/api/render/download-file/:filename", (req, res) => {
+  const filename = path.basename(req.params.filename);
+  const filePath = path.join(os.tmpdir(), filename);
+  if (!fs.existsSync(filePath)) {
+    res.status(404).json({ error: "File not found" });
+    return;
+  }
+  res.setHeader("Content-Type", "video/mp4");
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  fs.createReadStream(filePath).pipe(res);
+});
+
 // ── Render start endpoint ─────────────────────────────────────────────────
 app.post("/api/render", upload.any(), async (req, res) => {
   const accentColor = (req.body.accentColor as string) ?? "#6366f1";

@@ -1,10 +1,24 @@
-import React from "react";
+import React, { useState } from "react";
 import { ImageUploadArea } from "../upload/ImageUploadArea";
 import { SettingsPanel } from "../settings/SettingsPanel";
 import { PreviewArea } from "../preview/PreviewArea";
 import { ExportButton } from "../export/ExportButton";
+import { HistoryPage } from "../history/HistoryPage";
 
 export const AppShell: React.FC = () => {
+  const [tab, setTab] = useState<"generator" | "history">("generator");
+
+  const tabStyle = (active: boolean): React.CSSProperties => ({
+    padding: "6px 14px",
+    fontSize: 13,
+    fontWeight: 500,
+    borderRadius: 8,
+    cursor: "pointer",
+    border: "none",
+    background: active ? "var(--accent)" : "transparent",
+    color: active ? "white" : "var(--text-secondary)",
+  });
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "var(--bg)" }}>
       {/* Header */}
@@ -48,10 +62,23 @@ export const AppShell: React.FC = () => {
         }}>
           BETA
         </span>
+
+        {/* Tabs */}
+        <div style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
+          <button style={tabStyle(tab === "generator")} onClick={() => setTab("generator")}>Generator</button>
+          <button style={tabStyle(tab === "history")} onClick={() => setTab("history")}>History</button>
+        </div>
       </header>
 
-      {/* Main two-column layout */}
-      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+      {/* History tab */}
+      {tab === "history" && (
+        <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+          <HistoryPage />
+        </div>
+      )}
+
+      {/* Generator tab — two-column layout */}
+      <div style={{ display: tab === "generator" ? "flex" : "none", flex: 1, overflow: "hidden" }}>
         {/* Left sidebar */}
         <aside style={{
           width: 340,
