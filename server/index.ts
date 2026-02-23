@@ -135,8 +135,10 @@ async function doRender(
 
     console.log(`\n✅ [${jobId}] Done → ${outPath}`);
 
+    // Clean up uploaded source image immediately — mp4 is kept for History
+    if (uploadedFilePath) fs.unlink(uploadedFilePath, () => {});
     pushEvent(jobId, { type: "done", downloadUrl: `/api/render/download/${jobId}` });
-    renderOutputs.set(jobId, { outPath, uploadedFilePath });
+    renderOutputs.set(jobId, { outPath });
   } catch (err) {
     console.error(`Render error [${jobId}]:`, err);
     pushEvent(jobId, { type: "error", message: String(err) });
@@ -146,7 +148,7 @@ async function doRender(
 }
 
 // ── Download endpoint ─────────────────────────────────────────────────────
-const renderOutputs = new Map<string, { outPath: string; uploadedFilePath?: string }>();
+const renderOutputs = new Map<string, { outPath: string }>();
 
 app.get("/api/render/download/:jobId", (req, res) => {
   const { jobId } = req.params;
@@ -163,8 +165,7 @@ app.get("/api/render/download/:jobId", (req, res) => {
   const stream = fs.createReadStream(output.outPath);
   stream.pipe(res);
   stream.on("close", () => {
-    // Keep the render file so it appears in History — only delete the uploaded source image
-    if (output.uploadedFilePath) fs.unlink(output.uploadedFilePath, () => {});
+    // Keep the render mp4 so it appears in History (uploaded source already deleted after render)
   });
 });
 
