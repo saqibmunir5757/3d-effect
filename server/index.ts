@@ -21,7 +21,7 @@ app.use((req, res, next) => {
 // Serve uploaded files over HTTP so Remotion's headless browser can load them.
 app.use("/tmp-assets", express.static(os.tmpdir()));
 
-const PORT = 3001;
+const PORT = Number(process.env.PORT ?? 3004);
 const ENTRY_POINT = path.resolve(process.cwd(), "src/index.ts");
 
 // Multer: save uploaded image to OS temp dir, keep original extension
