@@ -4,6 +4,7 @@ import { DurationSlider } from "./DurationSlider";
 import { ZoomSlider } from "./ZoomSlider";
 import { CardScaleSlider } from "./CardScaleSlider";
 import { GlowIntensitySlider } from "./GlowIntensitySlider";
+import { BackgroundPicker } from "./BackgroundPicker";
 
 const Divider = () => (
   <div style={{ borderTop: "1px solid var(--border)", margin: "16px 0" }} />
@@ -21,6 +22,8 @@ export const SettingsPanel: React.FC = () => {
       <CardScaleSlider />
       <Divider />
       <GlowIntensitySlider />
+      <Divider />
+      <BackgroundPicker />
     </div>
   );
 };

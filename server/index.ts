@@ -83,6 +83,15 @@ app.get("/api/render/status/:jobId", (req, res) => {
 });
 
 // ── Async render function ─────────────────────────────────────────────────
+interface BgProps {
+  bgType: string;
+  bgColor1: string;
+  bgColor2: string;
+  bgAngle: number;
+  bgPatternSize: number;
+  bgImageUrl: string;
+}
+
 async function doRender(
   jobId: string,
   imageUrl: string,
@@ -92,13 +101,14 @@ async function doRender(
   cardScale: number,
   glowIntensity: number,
   imageAspectRatio: number,
+  bg: BgProps,
   uploadedFilePath?: string
 ) {
   const outPath = path.join(os.tmpdir(), `render-${jobId}.mp4`);
 
   try {
     const bundlePath = await getBundle();
-    const inputProps = { imageUrl, accentColor, entranceDurationFrames, imageZoom, cardScale, glowIntensity, imageAspectRatio, title: "", subtitle: "" };
+    const inputProps = { imageUrl, accentColor, entranceDurationFrames, imageZoom, cardScale, glowIntensity, imageAspectRatio, ...bg, title: "", subtitle: "" };
 
     const composition = await selectComposition({
       serveUrl: bundlePath,
@@ -211,6 +221,43 @@ app.delete("/api/render/delete-file/:filename", (req, res) => {
   });
 });
 
+// ── Background image upload (persistent) ──────────────────────────────────
+app.post("/api/backgrounds/upload", upload.single("image"), (req, res) => {
+  const file = req.file;
+  if (!file) { res.status(400).json({ error: "No image provided" }); return; }
+  // Rename with bg- prefix so it persists and is distinguishable
+  const ext = path.extname(file.originalname) || ".png";
+  const bgName = `bg-${Date.now()}${ext}`;
+  const newPath = path.join(os.tmpdir(), bgName);
+  fs.rename(file.path, newPath, (err) => {
+    if (err) { res.status(500).json({ error: "Failed to save background" }); return; }
+    res.json({ url: `/tmp-assets/${bgName}`, filename: bgName });
+  });
+});
+
+app.get("/api/backgrounds", (_req, res) => {
+  const tmpDir = os.tmpdir();
+  const files = fs.readdirSync(tmpDir)
+    .filter(f => f.startsWith("bg-") && /\.(png|jpe?g|webp|gif|bmp|svg)$/i.test(f))
+    .map(f => {
+      const stat = fs.statSync(path.join(tmpDir, f));
+      return { filename: f, url: `/tmp-assets/${f}`, createdAt: stat.mtimeMs };
+    })
+    .sort((a, b) => b.createdAt - a.createdAt);
+  res.json(files);
+});
+
+app.delete("/api/backgrounds/:filename", (req, res) => {
+  const filename = path.basename(req.params.filename);
+  if (!filename.startsWith("bg-")) { res.status(400).json({ error: "Invalid background file" }); return; }
+  const filePath = path.join(os.tmpdir(), filename);
+  if (!fs.existsSync(filePath)) { res.status(404).json({ error: "File not found" }); return; }
+  fs.unlink(filePath, (err) => {
+    if (err) { res.status(500).json({ error: "Failed to delete" }); return; }
+    res.json({ success: true });
+  });
+});
+
 // ── Render start endpoint ─────────────────────────────────────────────────
 app.post("/api/render", upload.any(), async (req, res) => {
   const accentColor = (req.body.accentColor as string) ?? "#6366f1";
@@ -219,6 +266,17 @@ app.post("/api/render", upload.any(), async (req, res) => {
   const cardScale = Number(req.body.cardScale ?? 0.7);
   const glowIntensity = Number(req.body.glowIntensity ?? 1.0);
   const imageAspectRatio = Number(req.body.imageAspectRatio ?? 16 / 9);
+
+  // Background props
+  const bg: BgProps = {
+    bgType: (req.body.bgType as string) ?? "linear-gradient",
+    bgColor1: (req.body.bgColor1 as string) ?? "#0a0a14",
+    bgColor2: (req.body.bgColor2 as string) ?? "#0e1628",
+    bgAngle: Number(req.body.bgAngle ?? 135),
+    bgPatternSize: Number(req.body.bgPatternSize ?? 30),
+    bgImageUrl: (req.body.bgImageUrl as string) ?? "",
+  };
+
   const jobId = `job-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
   jobStatuses.set(jobId, { state: "pending" });
@@ -226,12 +284,19 @@ app.post("/api/render", upload.any(), async (req, res) => {
   const files = req.files as Express.Multer.File[] | undefined;
   const uploadedFile = files?.find((f) => f.fieldname === "image");
 
+  // If a background image was uploaded, resolve its URL
+  const bgImageFile = files?.find((f) => f.fieldname === "bgImage");
+  if (bgImageFile) {
+    const bgFilename = path.basename(bgImageFile.path);
+    bg.bgImageUrl = `http://localhost:${PORT}/tmp-assets/${bgFilename}`;
+  }
+
   let imageUrl: string;
 
   if (uploadedFile) {
     const filename = path.basename(uploadedFile.path);
     imageUrl = `http://localhost:${PORT}/tmp-assets/${filename}`;
-    doRender(jobId, imageUrl, accentColor, entranceDurationFrames, imageZoom, cardScale, glowIntensity, imageAspectRatio, uploadedFile.path);
+    doRender(jobId, imageUrl, accentColor, entranceDurationFrames, imageZoom, cardScale, glowIntensity, imageAspectRatio, bg, uploadedFile.path);
   } else {
     const body = req.body as { imageUrl?: string };
     if (!body.imageUrl) {
@@ -239,7 +304,7 @@ app.post("/api/render", upload.any(), async (req, res) => {
       return;
     }
     imageUrl = body.imageUrl;
-    doRender(jobId, imageUrl, accentColor, entranceDurationFrames, imageZoom, cardScale, glowIntensity, imageAspectRatio);
+    doRender(jobId, imageUrl, accentColor, entranceDurationFrames, imageZoom, cardScale, glowIntensity, imageAspectRatio, bg);
   }
 
   res.json({ jobId });

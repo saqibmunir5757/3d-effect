@@ -2,6 +2,8 @@ import { create } from "zustand";
 
 export type ExportStatus = "idle" | "rendering" | "done" | "error";
 
+export type BgType = "solid" | "linear-gradient" | "radial-gradient" | "grid" | "dots" | "image";
+
 interface GeneratorState {
   // Image — data URL for live preview, raw File for server upload
   imageMode: "file" | "url";
@@ -16,6 +18,16 @@ interface GeneratorState {
   glowIntensity: number; // 0.0 = no glow, 1.0 = normal, 2.0 = max
   imageAspectRatio: number; // width / height of the uploaded image
 
+  // Background
+  bgType: BgType;
+  bgColor1: string;
+  bgColor2: string;
+  bgAngle: number;
+  bgPatternSize: number;
+  bgImageUrl: string;
+  bgImageFile: File | null;
+  savedBackgrounds: Array<{ label: string; bgType: BgType; bgColor1: string; bgColor2: string; bgAngle: number; bgPatternSize: number; bgImageUrl: string }>;
+
   // Export
   exportStatus: ExportStatus;
   exportError: string | null;
@@ -27,10 +39,14 @@ interface GeneratorState {
   setImageFromFile: (file: File) => void;
   setImageFromUrl: (url: string) => void;
   setImageMode: (mode: "file" | "url") => void;
-  updateProp: <K extends keyof Pick<GeneratorState, "accentColor" | "entranceDurationFrames" | "imageZoom" | "cardScale" | "glowIntensity" | "imageAspectRatio">>(
+  updateProp: <K extends keyof Pick<GeneratorState, "accentColor" | "entranceDurationFrames" | "imageZoom" | "cardScale" | "glowIntensity" | "imageAspectRatio" | "bgType" | "bgColor1" | "bgColor2" | "bgAngle" | "bgPatternSize" | "bgImageUrl">>(
     key: K,
     value: GeneratorState[K]
   ) => void;
+  setBgFromFile: (file: File) => void;
+  saveCurrentBg: (label: string) => void;
+  deleteSavedBg: (index: number) => void;
+  loadSavedBackgrounds: () => void;
   triggerRender: () => Promise<void>;
   resetExport: () => void;
 }
@@ -45,6 +61,14 @@ export const useGeneratorStore = create<GeneratorState>((set, get) => ({
   cardScale: 0.7,
   glowIntensity: 1.0,
   imageAspectRatio: 16 / 9,
+  bgType: "linear-gradient" as BgType,
+  bgColor1: "#0a0a14",
+  bgColor2: "#0e1628",
+  bgAngle: 135,
+  bgPatternSize: 30,
+  bgImageUrl: "",
+  bgImageFile: null,
+  savedBackgrounds: JSON.parse(localStorage.getItem("savedBackgrounds") ?? "[]"),
   exportStatus: "idle",
   exportError: null,
   renderFrame: 0,
@@ -83,8 +107,47 @@ export const useGeneratorStore = create<GeneratorState>((set, get) => ({
     set({ [key]: value } as Partial<GeneratorState>);
   },
 
+  setBgFromFile: (file: File) => {
+    set({ bgImageFile: file, bgType: "image" as BgType });
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target?.result as string;
+      set({ bgImageUrl: dataUrl });
+      // Upload to server for persistent storage
+      const form = new FormData();
+      form.append("image", file);
+      fetch("/api/backgrounds/upload", { method: "POST", body: form })
+        .then((res) => res.json())
+        .then((data: { url?: string }) => {
+          if (data.url) set({ bgImageUrl: data.url });
+        })
+        .catch(() => {});
+    };
+    reader.readAsDataURL(file);
+  },
+
+  saveCurrentBg: (label: string) => {
+    const { bgType, bgColor1, bgColor2, bgAngle, bgPatternSize, bgImageUrl, savedBackgrounds } = get();
+    const newBg = { label, bgType, bgColor1, bgColor2, bgAngle, bgPatternSize, bgImageUrl };
+    const updated = [...savedBackgrounds, newBg];
+    set({ savedBackgrounds: updated });
+    localStorage.setItem("savedBackgrounds", JSON.stringify(updated));
+  },
+
+  deleteSavedBg: (index: number) => {
+    const { savedBackgrounds } = get();
+    const updated = savedBackgrounds.filter((_, i) => i !== index);
+    set({ savedBackgrounds: updated });
+    localStorage.setItem("savedBackgrounds", JSON.stringify(updated));
+  },
+
+  loadSavedBackgrounds: () => {
+    const saved = JSON.parse(localStorage.getItem("savedBackgrounds") ?? "[]");
+    set({ savedBackgrounds: saved });
+  },
+
   triggerRender: async () => {
-    const { imageUrl, imageFile, imageMode, accentColor, entranceDurationFrames, imageZoom, cardScale, glowIntensity, imageAspectRatio } = get();
+    const { imageUrl, imageFile, imageMode, accentColor, entranceDurationFrames, imageZoom, cardScale, glowIntensity, imageAspectRatio, bgType, bgColor1, bgColor2, bgAngle, bgPatternSize, bgImageUrl, bgImageFile } = get();
     set({ exportStatus: "rendering", exportError: null, renderFrame: 0, renderTotalFrames: 0, renderPercent: 0 });
 
     try {
@@ -98,12 +161,19 @@ export const useGeneratorStore = create<GeneratorState>((set, get) => ({
         form.append("cardScale", String(cardScale));
         form.append("glowIntensity", String(glowIntensity));
         form.append("imageAspectRatio", String(imageAspectRatio));
+        form.append("bgType", bgType);
+        form.append("bgColor1", bgColor1);
+        form.append("bgColor2", bgColor2);
+        form.append("bgAngle", String(bgAngle));
+        form.append("bgPatternSize", String(bgPatternSize));
+        form.append("bgImageUrl", bgImageUrl);
+        if (bgImageFile && bgType === "image") form.append("bgImage", bgImageFile);
         startRes = await fetch("/api/render", { method: "POST", body: form });
       } else {
         startRes = await fetch("/api/render", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ imageUrl, accentColor, entranceDurationFrames, imageZoom, cardScale, glowIntensity, imageAspectRatio }),
+          body: JSON.stringify({ imageUrl, accentColor, entranceDurationFrames, imageZoom, cardScale, glowIntensity, imageAspectRatio, bgType, bgColor1, bgColor2, bgAngle, bgPatternSize, bgImageUrl }),
         });
       }
 

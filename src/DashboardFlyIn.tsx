@@ -25,6 +25,12 @@ export const DashboardFlyInSchema = z.object({
   cardScale: z.number().min(0.3).max(1.0).default(0.7),
   glowIntensity: z.number().min(0).max(2).default(1.0),
   imageAspectRatio: z.number().positive().default(16 / 9),
+  bgType: z.enum(["solid", "linear-gradient", "radial-gradient", "grid", "dots", "image"]).default("linear-gradient"),
+  bgColor1: z.string().default("#0a0a14"),
+  bgColor2: z.string().default("#0e1628"),
+  bgAngle: z.number().default(135),
+  bgPatternSize: z.number().default(30),
+  bgImageUrl: z.string().default(""),
 });
 
 export type DashboardFlyInProps = z.infer<typeof DashboardFlyInSchema>;
@@ -42,6 +48,42 @@ const HOLD_FRAMES     =  30;
 
 const FLOAT_AMPLITUDE_PX = 5;
 const FLOAT_PERIOD_S     = 3.5;
+
+// ---------------------------------------------------------------------------
+// Background style helper
+// ---------------------------------------------------------------------------
+function getBgStyle(
+  type: string, c1: string, c2: string, angle: number, patternSize: number, imageUrl: string
+): React.CSSProperties {
+  switch (type) {
+    case "solid":
+      return { background: c1 };
+    case "linear-gradient":
+      return { background: `linear-gradient(${angle}deg, ${c1} 0%, ${c2} 100%)` };
+    case "radial-gradient":
+      return { background: `radial-gradient(ellipse at center, ${c1} 0%, ${c2} 100%)` };
+    case "grid":
+      return {
+        backgroundColor: c1,
+        backgroundImage: `linear-gradient(${c2}40 1px, transparent 1px), linear-gradient(90deg, ${c2}40 1px, transparent 1px)`,
+        backgroundSize: `${patternSize}px ${patternSize}px`,
+      };
+    case "dots":
+      return {
+        backgroundColor: c1,
+        backgroundImage: `radial-gradient(circle, ${c2}60 1.5px, transparent 1.5px)`,
+        backgroundSize: `${patternSize}px ${patternSize}px`,
+      };
+    case "image":
+      return {
+        backgroundImage: `url(${imageUrl})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      };
+    default:
+      return { background: `linear-gradient(135deg, #0a0a14 0%, #0e1628 100%)` };
+  }
+}
 
 // ---------------------------------------------------------------------------
 // SlabLayers — memoized, only re-renders when src/cardW/cardH change.
@@ -123,6 +165,12 @@ const DashboardFlyInInner: React.FC<DashboardFlyInProps> = ({
   cardScale = 0.7,
   glowIntensity = 1.0,
   imageAspectRatio = 16 / 9,
+  bgType = "linear-gradient",
+  bgColor1 = "#0a0a14",
+  bgColor2 = "#0e1628",
+  bgAngle = 135,
+  bgPatternSize = 30,
+  bgImageUrl = "",
 }) => {
   const frame = useCurrentFrame();
   const { fps, width, height } = useVideoConfig();
@@ -228,7 +276,7 @@ const DashboardFlyInInner: React.FC<DashboardFlyInProps> = ({
   return (
     <AbsoluteFill
       style={{
-        background: "linear-gradient(135deg, #0a0a14 0%, #12121f 60%, #0e1628 100%)",
+        ...getBgStyle(bgType, bgColor1, bgColor2, bgAngle, bgPatternSize, bgImageUrl),
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
