@@ -24,6 +24,7 @@ export const DashboardFlyInSchema = z.object({
   imageZoom: z.number().min(1).max(3).default(1.0),
   cardScale: z.number().min(0.3).max(1.0).default(0.7),
   glowIntensity: z.number().min(0).max(2).default(1.0),
+  imageAspectRatio: z.number().positive().default(16 / 9),
 });
 
 export type DashboardFlyInProps = z.infer<typeof DashboardFlyInSchema>;
@@ -93,7 +94,7 @@ const SlabLayers: React.FC<SlabLayersProps> = memo(
           style={{
             width: `${zoom * 100}%`,
             height: `${zoom * 100}%`,
-            objectFit: "cover",
+            objectFit: "contain",
             display: "block",
             position: "absolute",
             top: "50%",
@@ -121,9 +122,10 @@ const DashboardFlyInInner: React.FC<DashboardFlyInProps> = ({
   imageZoom = 1.0,
   cardScale = 0.7,
   glowIntensity = 1.0,
+  imageAspectRatio = 16 / 9,
 }) => {
   const frame = useCurrentFrame();
-  const { fps, width } = useVideoConfig();
+  const { fps, width, height } = useVideoConfig();
 
   // ── delayRender / continueRender ─────────────────────────────────────────
   const handleRef = useRef<number | null>(null);
@@ -205,9 +207,21 @@ const DashboardFlyInInner: React.FC<DashboardFlyInProps> = ({
   // ── Resolve image src ─────────────────────────────────────────────────────
   const resolvedSrc = /^(https?|data|file):/.test(imageUrl) ? imageUrl : staticFile(imageUrl);
 
-  // ── Card dimensions ───────────────────────────────────────────────────────
-  const CARD_W = width * cardScale;
-  const CARD_H = CARD_W * (9 / 16);
+  // ── Card dimensions — adapt to actual image aspect ratio ────────────────
+  let CARD_W = width * cardScale;
+  let CARD_H = CARD_W / imageAspectRatio;
+
+  // If the card overflows the video frame, scale it down to fit
+  const maxH = height * 0.9;
+  const maxW = width * 0.9;
+  if (CARD_H > maxH) {
+    CARD_H = maxH;
+    CARD_W = CARD_H * imageAspectRatio;
+  }
+  if (CARD_W > maxW) {
+    CARD_W = maxW;
+    CARD_H = CARD_W / imageAspectRatio;
+  }
 
   const transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(${scale}) translateY(${floatY}px)`;
 

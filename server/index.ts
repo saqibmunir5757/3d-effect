@@ -91,13 +91,14 @@ async function doRender(
   imageZoom: number,
   cardScale: number,
   glowIntensity: number,
+  imageAspectRatio: number,
   uploadedFilePath?: string
 ) {
   const outPath = path.join(os.tmpdir(), `render-${jobId}.mp4`);
 
   try {
     const bundlePath = await getBundle();
-    const inputProps = { imageUrl, accentColor, entranceDurationFrames, imageZoom, cardScale, glowIntensity, title: "", subtitle: "" };
+    const inputProps = { imageUrl, accentColor, entranceDurationFrames, imageZoom, cardScale, glowIntensity, imageAspectRatio, title: "", subtitle: "" };
 
     const composition = await selectComposition({
       serveUrl: bundlePath,
@@ -217,6 +218,7 @@ app.post("/api/render", upload.any(), async (req, res) => {
   const imageZoom = Number(req.body.imageZoom ?? 1.0);
   const cardScale = Number(req.body.cardScale ?? 0.7);
   const glowIntensity = Number(req.body.glowIntensity ?? 1.0);
+  const imageAspectRatio = Number(req.body.imageAspectRatio ?? 16 / 9);
   const jobId = `job-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
   jobStatuses.set(jobId, { state: "pending" });
@@ -229,7 +231,7 @@ app.post("/api/render", upload.any(), async (req, res) => {
   if (uploadedFile) {
     const filename = path.basename(uploadedFile.path);
     imageUrl = `http://localhost:${PORT}/tmp-assets/${filename}`;
-    doRender(jobId, imageUrl, accentColor, entranceDurationFrames, imageZoom, cardScale, glowIntensity, uploadedFile.path);
+    doRender(jobId, imageUrl, accentColor, entranceDurationFrames, imageZoom, cardScale, glowIntensity, imageAspectRatio, uploadedFile.path);
   } else {
     const body = req.body as { imageUrl?: string };
     if (!body.imageUrl) {
@@ -237,7 +239,7 @@ app.post("/api/render", upload.any(), async (req, res) => {
       return;
     }
     imageUrl = body.imageUrl;
-    doRender(jobId, imageUrl, accentColor, entranceDurationFrames, imageZoom, cardScale, glowIntensity);
+    doRender(jobId, imageUrl, accentColor, entranceDurationFrames, imageZoom, cardScale, glowIntensity, imageAspectRatio);
   }
 
   res.json({ jobId });

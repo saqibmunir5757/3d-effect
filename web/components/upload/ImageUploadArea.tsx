@@ -120,7 +120,7 @@ export const ImageUploadArea: React.FC = () => {
               <img
                 src={imageUrl}
                 alt="Uploaded"
-                style={{ width: "100%", aspectRatio: "16/9", objectFit: "cover", display: "block" }}
+                style={{ width: "100%", maxHeight: 200, objectFit: "contain", display: "block" }}
               />
               <button
                 onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}

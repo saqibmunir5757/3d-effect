@@ -14,6 +14,7 @@ interface GeneratorState {
   imageZoom: number; // 1.0 = fit, >1 = zoom in
   cardScale: number; // 0.3–1.0, fraction of frame width
   glowIntensity: number; // 0.0 = no glow, 1.0 = normal, 2.0 = max
+  imageAspectRatio: number; // width / height of the uploaded image
 
   // Export
   exportStatus: ExportStatus;
@@ -26,7 +27,7 @@ interface GeneratorState {
   setImageFromFile: (file: File) => void;
   setImageFromUrl: (url: string) => void;
   setImageMode: (mode: "file" | "url") => void;
-  updateProp: <K extends keyof Pick<GeneratorState, "accentColor" | "entranceDurationFrames" | "imageZoom" | "cardScale" | "glowIntensity">>(
+  updateProp: <K extends keyof Pick<GeneratorState, "accentColor" | "entranceDurationFrames" | "imageZoom" | "cardScale" | "glowIntensity" | "imageAspectRatio">>(
     key: K,
     value: GeneratorState[K]
   ) => void;
@@ -43,6 +44,7 @@ export const useGeneratorStore = create<GeneratorState>((set, get) => ({
   imageZoom: 1.0,
   cardScale: 0.7,
   glowIntensity: 1.0,
+  imageAspectRatio: 16 / 9,
   exportStatus: "idle",
   exportError: null,
   renderFrame: 0,
@@ -53,13 +55,24 @@ export const useGeneratorStore = create<GeneratorState>((set, get) => ({
     set({ imageFile: file, imageMode: "file" });
     const reader = new FileReader();
     reader.onload = (e) => {
-      set({ imageUrl: e.target?.result as string });
+      const dataUrl = e.target?.result as string;
+      set({ imageUrl: dataUrl });
+      const img = new Image();
+      img.onload = () => {
+        set({ imageAspectRatio: img.naturalWidth / img.naturalHeight });
+      };
+      img.src = dataUrl;
     };
     reader.readAsDataURL(file);
   },
 
   setImageFromUrl: (url: string) => {
     set({ imageUrl: url, imageFile: null, imageMode: "url" });
+    const img = new Image();
+    img.onload = () => {
+      set({ imageAspectRatio: img.naturalWidth / img.naturalHeight });
+    };
+    img.src = url;
   },
 
   setImageMode: (mode) => {
@@ -71,7 +84,7 @@ export const useGeneratorStore = create<GeneratorState>((set, get) => ({
   },
 
   triggerRender: async () => {
-    const { imageUrl, imageFile, imageMode, accentColor, entranceDurationFrames, imageZoom, cardScale, glowIntensity } = get();
+    const { imageUrl, imageFile, imageMode, accentColor, entranceDurationFrames, imageZoom, cardScale, glowIntensity, imageAspectRatio } = get();
     set({ exportStatus: "rendering", exportError: null, renderFrame: 0, renderTotalFrames: 0, renderPercent: 0 });
 
     try {
@@ -84,12 +97,13 @@ export const useGeneratorStore = create<GeneratorState>((set, get) => ({
         form.append("imageZoom", String(imageZoom));
         form.append("cardScale", String(cardScale));
         form.append("glowIntensity", String(glowIntensity));
+        form.append("imageAspectRatio", String(imageAspectRatio));
         startRes = await fetch("/api/render", { method: "POST", body: form });
       } else {
         startRes = await fetch("/api/render", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ imageUrl, accentColor, entranceDurationFrames, imageZoom, cardScale, glowIntensity }),
+          body: JSON.stringify({ imageUrl, accentColor, entranceDurationFrames, imageZoom, cardScale, glowIntensity, imageAspectRatio }),
         });
       }
 
