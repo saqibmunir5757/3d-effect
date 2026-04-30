@@ -11,6 +11,17 @@ services:
     cap_add:
       - SYS_ADMIN
     restart: unless-stopped
+    # Chromium needs a real /dev/shm; default 64MB is too small for headless rendering
+    shm_size: 1gb
+    # Cap container memory so the host kills/restarts a runaway render
+    # rather than letting it wedge the box. Tune to your host.
+    mem_limit: 4g
+    # Rotate stdout/stderr so /var/lib/docker/containers doesn't fill the host disk
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
     volumes:
       - /hdd/3d-out:/tmp
     devices:
